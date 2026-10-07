@@ -45,7 +45,7 @@ class SkillConsistencyTests(unittest.TestCase):
 
         self.assertIn("Terraform", profile["skills"])
 
-    def test_score_preserves_supplied_skills_and_merges_fetched_skills(self):
+    def test_score_uses_authoritative_fetched_skills(self):
         candidate_profile = {
             "candidate_id": self.candidate_id,
             "skills": ["CallerOnly"],
@@ -63,7 +63,7 @@ class SkillConsistencyTests(unittest.TestCase):
 
         user_message = scoring_llm.invoke.call_args.args[0][1]["content"]
         scored_profile = json.loads(user_message.split("\n\nCandidate profile:\n", 1)[1])
-        self.assertIn("CallerOnly", scored_profile["skills"])
+        self.assertNotIn("CallerOnly", scored_profile["skills"])
         self.assertIn("Go", scored_profile["skills"])
 
     def test_agent_prompt_flags_contradictory_score_justification(self):
