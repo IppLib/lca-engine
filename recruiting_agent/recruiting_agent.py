@@ -34,7 +34,9 @@ from deepagents import create_deep_agent
 from . import data_service
 from .data_service import RECRUITER_IDS
 
-MODEL_NAME = "gpt-4o-mini"
+# Keep the course model as the default; deployments may use an
+# OpenAI-compatible provider with OPENAI_API_KEY / OPENAI_BASE_URL.
+MODEL_NAME = os.environ.get("RECRUITING_MODEL_NAME", "gpt-4o-mini")
 
 # ---------------------------------------------------------------------------
 # Job posting schema
