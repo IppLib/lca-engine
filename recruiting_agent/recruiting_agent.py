@@ -121,17 +121,42 @@ class CandidateScore(BaseModel):
 _scoring_llm = ChatOpenAI(model=MODEL_NAME, temperature=0).with_structured_output(CandidateScore)
 
 
-def _job_has_required_fields(job):
-    "Return True if the job has the fields needed to score against it."
-    return bool(job) and bool(job.get("required_skills")) and \
-        job.get("min_years_experience") is not None and bool(job.get("description"))
+def _missing_score_fields(candidate_profile, job_description):
+    "Return the required score input paths that are missing."
+    missing = []
+    candidate_fields = {
+        "candidate_id": candidate_profile,
+        "skills": candidate_profile,
+        "work_history": candidate_profile,
+        "years_experience": candidate_profile,
+    }
+    for field, profile in candidate_fields.items():
+        if not isinstance(profile, dict) or profile.get(field) is None:
+            missing.append(f"candidate_profile.{field}")
+    job_fields = {
+        "required_skills": job_description,
+        "min_years_experience": job_description,
+        "description": job_description,
+    }
+    for field, posting in job_fields.items():
+        if not isinstance(posting, dict):
+            missing.append(f"job_description.{field}")
+        elif posting.get(field) is None or (
+            field != "min_years_experience" and not posting.get(field)
+        ):
+            missing.append(f"job_description.{field}")
+    return missing
 
 
 @tool
 def score_candidate(candidate_profile: dict, job_description: dict | None = None) -> dict:
-    "Score a candidate profile against a job description on a 1-100 scale with a justification."
-    if job_description is None or not _job_has_required_fields(job_description):
-        return {"score": None, "error": "Cannot score without a valid job description."}
+    "Score the candidate_profile and job_posting fields returned by the profile and posting tools."
+    missing_fields = _missing_score_fields(candidate_profile, job_description)
+    if missing_fields:
+        return {
+            "score": None,
+            "error": "Cannot score because required fields are missing: " + ", ".join(missing_fields) + ".",
+        }
     # Score against the candidate's saved skills of record.
     cid = candidate_profile.get("candidate_id")
     if cid is not None:
