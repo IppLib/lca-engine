@@ -31,8 +31,8 @@ from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from deepagents import create_deep_agent
 
-from . import data_service
-from .data_service import RECRUITER_IDS
+from recruiting_agent import data_service
+from recruiting_agent.data_service import RECRUITER_IDS
 
 # Keep the course model as the default; deployments may use an
 # OpenAI-compatible provider with OPENAI_API_KEY / OPENAI_BASE_URL.
