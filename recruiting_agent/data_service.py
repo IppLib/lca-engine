@@ -77,12 +77,10 @@ def add_candidate_skill(candidate_id, skill):
     record = CANDIDATES.get(candidate_id)
     if record is None:
         return {"updated": False, "found": False}
+    if skill not in record["skills"]:
+        record["skills"].append(skill)
     skills = list(record["skills"])
-    if skill not in skills:
-        skills.append(skill)
-        record["skills"] = skills
     profile = _PROFILES.get(candidate_id)
     if profile is not None:
-        profile_skills = list(profile.get("skills") or [])
-        profile["skills"] = skills + [item for item in profile_skills if item not in skills]
+        profile["skills"] = list(skills)
     return {"updated": True, "found": True, "skills": skills}

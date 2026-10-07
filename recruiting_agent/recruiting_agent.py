@@ -134,11 +134,9 @@ def score_candidate(candidate_profile: dict, job_description: dict | None = None
         return {"score": None, "error": "Cannot score without a valid job description."}
     cid = candidate_profile.get("candidate_id")
     if cid is not None:
-        supplied_skills = list(candidate_profile.get("skills") or [])
-        fetched_skills = data_service.fetch_skills(cid)
         candidate_profile = {
             **candidate_profile,
-            "skills": supplied_skills + [skill for skill in fetched_skills if skill not in supplied_skills],
+            "skills": data_service.fetch_skills(cid),
         }
     user = (
         "Job description:\n" + json.dumps(job_description, indent=2) +
