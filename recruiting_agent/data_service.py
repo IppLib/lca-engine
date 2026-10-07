@@ -16,7 +16,7 @@ __all__ = [
     "get_job_posting", "get_candidate_record",
     "fetch_work_history", "fetch_education", "fetch_skills",
     "get_profile_from_db", "save_profile_to_db",
-    "get_recruiter",
+    "get_recruiter", "add_candidate_skill",
 ]
 
 # Built candidate profiles are cached in memory (keyed by candidate_id) so repeat
@@ -57,7 +57,7 @@ def fetch_education(candidate_id):
 
 @traceable(run_type="tool", name="fetch_skills")
 def fetch_skills(candidate_id):
-    return CANDIDATES[candidate_id]["skills"]
+    return list(CANDIDATES[candidate_id]["skills"])
 
 
 @traceable(run_type="tool", name="get_profile_from_db")
@@ -80,4 +80,9 @@ def add_candidate_skill(candidate_id, skill):
     skills = list(record["skills"])
     if skill not in skills:
         skills.append(skill)
+        record["skills"] = skills
+    profile = _PROFILES.get(candidate_id)
+    if profile is not None:
+        profile_skills = list(profile.get("skills") or [])
+        profile["skills"] = skills + [item for item in profile_skills if item not in skills]
     return {"updated": True, "found": True, "skills": skills}
