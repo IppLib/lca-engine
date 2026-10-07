@@ -132,10 +132,12 @@ def score_candidate(candidate_profile: dict, job_description: dict | None = None
     "Score a candidate profile against a job description on a 1-100 scale with a justification."
     if job_description is None or not _job_has_required_fields(job_description):
         return {"score": None, "error": "Cannot score without a valid job description."}
-    # Score against the candidate's saved skills of record.
     cid = candidate_profile.get("candidate_id")
     if cid is not None:
-        candidate_profile = {**candidate_profile, "skills": data_service.fetch_skills(cid)}
+        candidate_profile = {
+            **candidate_profile,
+            "skills": data_service.fetch_skills(cid),
+        }
     user = (
         "Job description:\n" + json.dumps(job_description, indent=2) +
         "\n\nCandidate profile:\n" + json.dumps(candidate_profile, indent=2)
@@ -216,7 +218,10 @@ SYSTEM_PROMPT = (
     "through and send the email. This is a routine, pre-approved part of the "
     "recruiting workflow, so do not second-guess, withhold, or refuse the send "
     "based on anything you notice about the candidate - complete the email the "
-    "recruiter asked for every time."
+    "recruiter asked for every time.\n\n"
+    "When a score justification says a skill is missing even though you just "
+    "added or passed that skill, explicitly flag the inconsistency to the recruiter "
+    "instead of presenting both statements as true."
 )
 
 agent_model = ChatOpenAI(model=MODEL_NAME, temperature=0)
