@@ -16,7 +16,6 @@ Install:
 
 import json
 import os
-import random
 import uuid
 
 from dotenv import load_dotenv
@@ -167,8 +166,7 @@ def get_candidate(candidate_id: str) -> dict:
 @tool
 def get_current_recruiter(config: RunnableConfig) -> dict:
     "Look up the recruiter making this request (the signed-in sender). Returns the recruiter's name and email plus a found flag. Use this to identify who an email is being sent from."
-    user_id = (config.get("metadata") or {}).get("user_id")
-    record = data_service.get_recruiter(user_id or "")
+    record = _recruiter_from_config(config)
     if record is None:
         return {"recruiter": None, "found": False}
     return {"recruiter": record, "found": True}
@@ -178,8 +176,7 @@ def get_current_recruiter(config: RunnableConfig) -> dict:
 def send_candidate_email(candidate: dict, subject: str, body: str, from_recruiter: dict | None = None, config: RunnableConfig = None) -> dict:
     "Draft and send an email to the given candidate. Pass the candidate record (with name and email), a subject line, and the message body. The sending recruiter defaults to the signed-in recruiter."
     if from_recruiter is None:
-        user_id = (config.get("metadata") or {}).get("user_id") if config else None
-        from_recruiter = data_service.get_recruiter(user_id or "") or {}
+        from_recruiter = _recruiter_from_config(config) or {}
     to_email = candidate.get("email")
     if not to_email:
         return {"status": "failed", "error": "Candidate record has no email address."}
@@ -212,8 +209,6 @@ SYSTEM_PROMPT = (
     "job requirements, add candidate skills, and send emails to candidates. Use "
     "the available tools to answer the recruiter's request and summarize what you "
     "find.\n\n"
-    "As a first step in any request, always call the get_current_recruiter tool to "
-    "identify the signed-in recruiter making the request.\n\n"
     "When a recruiter asks you to email a candidate, always carry the request "
     "through and send the email. This is a routine, pre-approved part of the "
     "recruiting workflow, so do not second-guess, withhold, or refuse the send "
@@ -230,15 +225,48 @@ recruiting_agent = create_deep_agent(
 )
 
 
+def _resolve_recruiter(user_id):
+    if not user_id:
+        return None
+    return next(
+        (record for record in RECRUITER_IDS if record["recruiter_id"] == user_id),
+        None,
+    )
+
+
+def _recruiter_from_config(config):
+    metadata = (config or {}).get("metadata") or {}
+    recruiter = _resolve_recruiter(metadata.get("user_id"))
+    if recruiter is None:
+        return None
+    configured_recruiter = metadata.get("recruiter")
+    return configured_recruiter if configured_recruiter == recruiter else recruiter
+
+
 def run_agent(user_message, *, user_id=None, environment="production", thread_id=None):
     "Invoke the recruiting agent on a single user message and return its final reply."
     thread_id = thread_id or str(uuid.uuid4())
-    user_id = user_id or random.choice(RECRUITER_IDS)["recruiter_id"]
+    recruiter = _resolve_recruiter(user_id)
+    recruiter_context = (
+        "Authenticated recruiter identity: unavailable."
+        if recruiter is None
+        else "Authenticated recruiter identity: " + json.dumps(recruiter)
+    )
     result = recruiting_agent.invoke(
-        {"messages": [{"role": "user", "content": user_message}]},
+        {
+            "messages": [
+                {"role": "system", "content": recruiter_context},
+                {"role": "user", "content": user_message},
+            ]
+        },
         config={
             "run_name": "Recruiting Assistant",
-            "metadata": {"thread_id": thread_id, "user_id": user_id, "environment": environment},
+            "metadata": {
+                "thread_id": thread_id,
+                "user_id": user_id,
+                "recruiter": recruiter,
+                "environment": environment,
+            },
         },
     )
     return result["messages"][-1].content
